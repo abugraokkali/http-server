@@ -30,7 +30,7 @@ class HTTPServer:#The actual HTTP server class.
             c, addr = s.accept()#accept client requests
             print("Connected by", addr) 
             data = self.recvall(c) #reading just the first 1024 bytes sent by the client.
-            response= self.handle_request(data, c)#handle_request method which will then returns a response
+            response= self.handle_request(data)#handle_request method which will then returns a response
             c.sendall(response)# send back the data to client
             c.close()# close the connection
 
@@ -54,7 +54,7 @@ class HTTPServer:#The actual HTTP server class.
                     break
         return data
 
-    def handle_request(self, data, c):#handles requests
+    def handle_request(self, data):#handles requests
         lines = data.splitlines()#here we parse the request line to get the method , uri and http version
         request_line = lines[0].split()#request line is the first line of the request
         method, url = request_line[0].decode(), request_line[1].decode()#method is the first element of the request line and url is the second element
@@ -70,7 +70,7 @@ class HTTPServer:#The actual HTTP server class.
         elif(method == 'PUT' and path == '/rename'):#if the method is DELETE and the endpoint is /remove
             return self.handle_rename(params)
         elif(method == 'GET' and path == '/download'):#if the method is GET and the endpoint is /download
-            return self.handle_download(params, c)
+            return self.handle_download(params)
         else:
             return self.response(404, {'error': '404 Request Not found'})
 
@@ -82,7 +82,7 @@ class HTTPServer:#The actual HTTP server class.
             body = {'number': number, 'isPrime': self.is_prime(number)}
             return self.response(200, body)
         except ValueError:
-            return self.response(400, {'error': 'Please enter a number'})
+            return self.response(200, {'error': 'Please enter a integer'})
 
     def is_prime(self,n):
         if(n > 1):
@@ -94,10 +94,13 @@ class HTTPServer:#The actual HTTP server class.
         
     def handle_upload(self, data):
         lines = data.splitlines()
+        boundary = ''
         for line in lines:
             if b'boundary' in line:
                 boundary = line.split(b'=')[1]
                 break
+        if boundary == '':
+            return self.response(200, {'error': 'Missing file'})  
         b_index = lines.index(b'--' + boundary)
         filename = lines[b_index+1].split(b'filename=')[1].split(b'\r\n')[0].decode().replace('"', '')
         m = re.search(b'Content-Type:(.+?)\r\n\r\n', data)
@@ -128,23 +131,21 @@ class HTTPServer:#The actual HTTP server class.
             os.rename(oldFileName, params["newName"][0])
             return self.response(200, {'message': 'File renamed successfully'})
 
-    def handle_download(self, params, conn):
+    def handle_download(self, params):
         if "fileName" not in params:
             return self.response(400, {'error': 'Missing fileName parameter'}),
         fileName = params["fileName"][0]
         if not os.path.exists(fileName):
             return self.response(200, {'message': 'File not found'})
+        f = open(fileName, "rb")
+        return self.response(200, f.read(), 'file')     
 
-        with open(fileName, 'rb') as file_to_send:
-            for data in file_to_send:
-                conn.sendall(data)
-        conn.close()
-        return self.response(404, {'package': 'package'})     
-
-    def response(self, status_code, body):# returns response line based on status code
+    def response(self, status_code, body, type='json'):# returns response line based on status code
         reason = self.status_codes[status_code]#key status returns corresponding values as reason
         response_line = 'HTTP/1.1 %s %s\r\n' % (status_code, reason)
-        return b''.join([response_line.encode(), b'\r\n', json.dumps(body).encode()])#joins all the components together
+        if type=='json':
+            body = json.dumps(body).encode()
+        return b''.join([response_line.encode(), b'\r\n', body])#joins all the components together
 
 if __name__ == '__main__':
     server = HTTPServer()
