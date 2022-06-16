@@ -34,8 +34,7 @@ class HTTPServer:#The actual HTTP server class.
             c.sendall(response)# send back the data to client
             c.close()# close the connection
 
-    def recvall(self, sock):
-    # Helper function to recv n bytes or return None if EOF is hit
+    def recvall(self, sock):# Helper function to recv all data from a socket
         data = b''
         packet = sock.recv(1024)
         data += packet
@@ -56,7 +55,6 @@ class HTTPServer:#The actual HTTP server class.
         return data
 
     def handle_request(self, data, c):#handles requests
-        #print(data.decode())#decode the data
         lines = data.splitlines()#here we parse the request line to get the method , uri and http version
         request_line = lines[0].split()#request line is the first line of the request
         method, url = request_line[0].decode(), request_line[1].decode()#method is the first element of the request line and url is the second element
@@ -125,7 +123,7 @@ class HTTPServer:#The actual HTTP server class.
 
         oldFileName = params["oldFileName"][0]
         if not os.path.exists(oldFileName):
-            return self.response(404, {'error': 'File not found'})
+            return self.response(200, {'message': 'File not found'})
         else:
             os.rename(oldFileName, params["newName"][0])
             return self.response(200, {'message': 'File renamed successfully'})
@@ -135,7 +133,7 @@ class HTTPServer:#The actual HTTP server class.
             return self.response(400, {'error': 'Missing fileName parameter'}),
         fileName = params["fileName"][0]
         if not os.path.exists(fileName):
-            return self.response(404, {'error': 'File not found'})
+            return self.response(200, {'message': 'File not found'})
 
         with open(fileName, 'rb') as file_to_send:
             for data in file_to_send:
